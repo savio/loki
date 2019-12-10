@@ -140,6 +140,7 @@ module Fluent
         opts = ssl_opts(uri)
 
         log.debug "sending #{req.body.length} bytes to loki"
+        
         res = Net::HTTP.start(uri.hostname, uri.port, **opts) { |http| http.request(req) }
         unless res&.is_a?(Net::HTTPSuccess)
           res_summary = if res
@@ -215,7 +216,7 @@ module Fluent
       end
 
       def to_nano(time)
-        time.to_i * (10**9) + time.nsec
+        (time.is_a?(Integer) ? time : time.to_i) * (10 ** 9) + (time.is_a?(Integer) ? 0 : time.nsec)
       end
 
       def record_to_line(record)
@@ -256,6 +257,10 @@ module Fluent
               chunk_labels[new_key] = kubernetes_labels[l]
             end
           end
+	  
+          if record.key?('tag')
+            chunk_labels['tag'] = record['tag']
+          end
 
           # remove needless keys.
           @remove_keys_accessors&.each do |deleter|
@@ -292,6 +297,7 @@ module Fluent
             'line' => result[:line]
           )
         end
+
         streams
       end
     end
